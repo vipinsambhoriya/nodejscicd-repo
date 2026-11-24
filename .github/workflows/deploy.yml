@@ -9,14 +9,104 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Deploy to AWS EC2
+
+  # JOB 1: BUILD
+  build:
+    name: Build Application
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Application
+        run: npm run build
+
+
+  # JOB 2: TEST
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Start Application and Run Tests
+        run: |
+          npm start > app.log 2>&1 &
+          APP_PID=$!
+          trap 'kill $APP_PID 2>/dev/null || true' EXIT
+
+          for i in {1..15}; do
+            if curl -fsS http://127.0.0.1:3000/health; then
+              break
+            fi
+            sleep 2
+          done
+
+          npm test
+
+
+  # JOB 3: RUN
+  run:
+    name: Run Application
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Application Smoke Test
+        run: |
+          npm start > app.log 2>&1 &
+          APP_PID=$!
+          trap 'kill $APP_PID 2>/dev/null || true' EXIT
+
+          for i in {1..15}; do
+            if curl -fsS http://127.0.0.1:3000/health; then
+              break
+            fi
+            sleep 2
+          done
+
+          curl -f http://127.0.0.1:3000/
+          echo "Application is running successfully!"
+
+
+  # JOB 4: DEPLOY
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs: run
+
+    steps:
       - name: Deploy Application to EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -32,10 +122,9 @@ jobs:
             echo "Installing dependencies..."
             npm ci
 
-            echo "Restarting Node.js application..."
+            echo "Restarting application..."
             sudo pm2 restart nodejs-app
 
-            echo "Saving PM2 process list..."
             sudo pm2 save
 
             echo "Deployment completed successfully!"
