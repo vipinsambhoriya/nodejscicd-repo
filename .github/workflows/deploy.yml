@@ -1,4 +1,5 @@
-name: AWS OIDC Test
+
+name: GitHub OIDC Debug
 
 on:
   workflow_dispatch:
@@ -8,15 +9,23 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  debug:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v6
+      - name: Print OIDC claims
+        uses: actions/github-script@v7
         with:
-          role-to-assume: arn:aws:iam::018088156408:role/GitHubActions-Staging-Deploy
-          aws-region: us-east-2
+          script: |
+            const token = await core.getIDToken('sts.amazonaws.com');
 
-      - name: Verify AWS Identity
-        run: aws sts get-caller-identity
+            const payload = JSON.parse(
+              Buffer.from(token.split('.')[1], 'base64url').toString()
+            );
+
+            console.log("Issuer:", payload.iss);
+            console.log("Audience:", payload.aud);
+            console.log("Subject:", payload.sub);
+            console.log("Repository:", payload.repository);
+            console.log("Branch:", payload.ref);
+            console.log("Environment:", payload.environment);
