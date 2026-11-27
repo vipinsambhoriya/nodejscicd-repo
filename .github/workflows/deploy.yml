@@ -86,7 +86,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["sudo -iu ubuntu bash -lc '\''cd /home/ubuntu/nodejs-cicd/nodejscicd-repo && git pull --ff-only origin main && npm ci && pm2 restart nodejs-app && pm2 save'\''"]' \
+            --parameters 'commands=["sudo -u ubuntu -H bash -lc 'cd /home/ubuntu/nodejs-cicd/nodejscicd-repo && git pull --ff-only origin main && npm ci && if pm2 describe nodejs-app >/dev/null 2>&1; then pm2 restart nodejs-app; else pm2 start npm --name nodejs-app -- start; fi && pm2 save'"]
             --query "Command.CommandId" \
             --output text)
 
