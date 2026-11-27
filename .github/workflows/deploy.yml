@@ -8,6 +8,10 @@ on:
 
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
 
   # JOB 1: BUILD
@@ -114,7 +118,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::018088156408:role/GitHubActions-Staging-Deploy
-          aws-region: us-east-1
+          aws-region: us-east-2
 
       - name: Verify AWS Connection
         run: |
